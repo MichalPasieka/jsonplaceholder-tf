@@ -1,99 +1,122 @@
 package tests;
 
+import annotation.Description;
+import annotation.Issue;
 import core.RestCore;
 import domain.JsonPlaceholderEndpoint;
 import domain.model.request.PostsRequest;
 import domain.model.response.PostCommentsResponse;
 import domain.model.response.PostsResponse;
+import enums.TestType;
 import io.restassured.response.Response;
+import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+import utils.JsonUtils;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * A TEST TASK
+ * Create a test suite for testing the following methods from this REST service using Java: https://jsonplaceholder.typicode.com
+ * GET /posts
+ * GET /posts/ {id}
+ * GET /posts/ {id} /comments
+ * GET /comments?postId= {id}
+ * POST /posts
+ * PUT /posts/ {id}
+ * PATCH /posts/ {id}
+ * DELETE /posts/ {id}
+ *
+ * ACCEPTANCE CRITERIA
+ * Tests should be built with layered architecture (core, domain, tests levels)
+ * Tests should be created using either Rest Assured or Spring Rest Template or Apache Http Client.
+ * Tests have to include critical path tests validations both positive and negative (define a set of tests on your own).
+ * Implemented tests should be readable with needed comments.
+ * Tests must be implemented so that they can be launched in parallel.
+ * Naming and Code Conventions should be followed https://google.github.io/styleguide/javaguide.html or any other.
+ **/
 public class JsonPlaceholderPostsRestTest {
 
     private static final String NON_EXISTING_ID = "xyz";
     private static final String VALID_ID = "8";
+    private static final String POSTS_200_RESPONSE_JSON = "src/test/resources/responses/getPosts200Response.json";
     private final RestCore restCore = new RestCore(JsonPlaceholderEndpoint.host);
 
     @Test
+    @Description(type = TestType.POSITIVE, description = "Check 200 response for GET '/posts/{id}' with existing Id")
     public void validateGetPosts200Response() {
-        PostsResponse expectedResponse = new PostsResponse();
-        expectedResponse.setId("3");
-        expectedResponse.setUserId("1");
-        expectedResponse.setTitle("ea molestias quasi exercitationem repellat qui ipsa sit aut");
-        expectedResponse.setBody("et iusto sed quo iure\n" +
-                "voluptatem occaecati omnis eligendi aut ad\n" +
-                "voluptatem doloribus vel accusantium quis pariatur\n" +
-                "molestiae porro eius odio et labore et velit aut");
+        String existingId = "3";
+        PostsResponse expectedResponse = JsonUtils.readObjectFromJson(POSTS_200_RESPONSE_JSON, PostsResponse.class);
 
-        Response response = restCore.getResponse(getParamPath(JsonPlaceholderEndpoint.postId, expectedResponse.getId()));
-        response.then().statusCode(200);
+        Response response = restCore.getResponse(getParamPath(JsonPlaceholderEndpoint.postId, existingId));
+        response.then().statusCode(HttpStatus.SC_OK);
 
         PostsResponse actualResponse = response.getBody().as(PostsResponse.class);
-
         Assert.assertEquals(actualResponse, expectedResponse);
     }
 
     @Test
-    public void validateGetPosts494Response() {
+    @Description(type = TestType.NEGATIVE, description = "Check 404 response for GET '/posts/{id}' with non-existing Id")
+    public void validateGetPosts404Response() {
         Response response = restCore.getResponse(getParamPath(JsonPlaceholderEndpoint.postId, NON_EXISTING_ID));
-        response.then().statusCode(404);
+        response.then().statusCode(HttpStatus.SC_NOT_FOUND);
         response.then().body("isEmpty()", Matchers.is(true));
     }
 
     @Test
+    @Description(type = TestType.POSITIVE, description = "Check 200 response for GET '/posts'")
     public void validateGetAllPosts200Response() {
         Response response = restCore.getResponse(JsonPlaceholderEndpoint.post);
-        response.then().statusCode(200);
+        response.then().statusCode(HttpStatus.SC_OK);
 
         PostsResponse[] postsResponses = response.getBody().as(PostsResponse[].class);
         Assert.assertTrue(postsResponses.length > 0);
-
         Arrays.stream(postsResponses).forEach(x -> Assert.assertNotNull(x.getId()));
     }
 
     @Test
+    @Description(type = TestType.POSITIVE, description = "Check 200 response for GET '/posts/{id}/comments' with existing id")
     public void validateGetPostsComments200Response() {
         Response response = restCore.getResponse(getParamPath(JsonPlaceholderEndpoint.postIdComments, VALID_ID));
-        response.then().statusCode(200);
+        response.then().statusCode(HttpStatus.SC_OK);
 
         PostCommentsResponse[] postResponses = response.getBody().as(PostCommentsResponse[].class);
         Assert.assertTrue(postResponses.length > 0);
-
         Arrays.stream(postResponses).forEach(x -> Assert.assertEquals(x.getPostId(), VALID_ID));
     }
 
     @Test
+    @Description(type = TestType.POSITIVE, description = "Check 200 response for GET '/comments' with existing id")
     public void validateGetComments200Response() {
-        Map<String, String> params = new HashMap<>();
-        params.put("postId", "3");
+        Map<String, String> params = Map.of("postId", "3");
         Response response = restCore.getResponse(params, JsonPlaceholderEndpoint.comments);
-        response.then().statusCode(200);
+        response.then().statusCode(HttpStatus.SC_OK);
 
         PostCommentsResponse[] postResponses = response.getBody().as(PostCommentsResponse[].class);
         Assert.assertTrue(postResponses.length > 0);
     }
 
     @Test
+    @Description(type = TestType.POSITIVE, description = "Check 200 response for DELETE '/posts/{id}' with existing id")
     public void validateDeletePosts200Response() {
         Response response = restCore.deleteResponse(getParamPath(JsonPlaceholderEndpoint.postId, VALID_ID));
-        response.then().statusCode(200);
+        response.then().statusCode(HttpStatus.SC_OK);
     }
 
-    //TODO potential API bug - DELETE on non existing id should return 404 error response
     @Test
+    @Issue(ticketNumber = "", description = "potential API bug - DELETE on non existing id should return 404 error response")
+    @Description(type = TestType.NEGATIVE, description = "Check 404 response for DELETE '/posts/{id}' with non-existing id")
     public void validateDeletePosts404Response() {
         Response response = restCore.deleteResponse(getParamPath(JsonPlaceholderEndpoint.postId, NON_EXISTING_ID));
-        response.then().statusCode(404);
+        response.then().statusCode(HttpStatus.SC_NOT_FOUND);
     }
 
-    //TODO potential API bug - PUT response returns 200, but entry is not updated
     @Test
+    @Issue(ticketNumber = "", description = "potential API bug - PUT response returns 200, but entry is not updated")
+    @Description(type = TestType.POSITIVE, description = "Check 200 response for PUT '/posts/{id}' with existing id")
     public void validatePutPosts200Response() {
         PostsRequest postsRequest = new PostsRequest();
         postsRequest.setBody("updated Body");
@@ -102,7 +125,7 @@ public class JsonPlaceholderPostsRestTest {
 
         String existingId = "5";
         Response putResponse = restCore.putResponse(postsRequest, getParamPath(JsonPlaceholderEndpoint.postId, existingId));
-        putResponse.then().statusCode(200);
+        putResponse.then().statusCode(HttpStatus.SC_OK);
 
         PostsResponse actualPutResponse = putResponse.getBody().as(PostsResponse.class);
 
@@ -111,23 +134,24 @@ public class JsonPlaceholderPostsRestTest {
         Assert.assertEquals(actualPutResponse.getBody(), postsRequest.getBody());
         Assert.assertEquals(actualPutResponse.getTitle(), postsRequest.getTitle());
 
-        // validate updated entry
         Response getResponse = restCore.getResponse(getParamPath(JsonPlaceholderEndpoint.postId, existingId));
-        getResponse.then().statusCode(200);
+        getResponse.then().statusCode(HttpStatus.SC_OK);
 
         PostsResponse getObject = getResponse.getBody().as(PostsResponse.class);
-
         Assert.assertEquals(getObject, actualPutResponse);
     }
-    //TODO potential API bug - invalid 500 response with text/html content instead of 'Not Found' response
+
     @Test
+    @Issue(ticketNumber = "", description = "potential API bug - invalid 500 response with text/html content instead of 'Not Found' response")
+    @Description(type = TestType.NEGATIVE, description = "Check 404 response for PUT '/posts/{id}' with non-existing id")
     public void validatePutPosts404Response() {
         Response response = restCore.putResponse("invalidRequestBody", getParamPath(JsonPlaceholderEndpoint.postId, NON_EXISTING_ID));
-        response.then().statusCode(404);
+        response.then().statusCode(HttpStatus.SC_NOT_FOUND);
     }
 
-    //TODO potential bug - created entry with generated id cannot be found by GET "/posts/{id}"
     @Test
+    @Issue(ticketNumber = "", description = "potential bug - created entry with generated id cannot be found by GET '/posts/{id}'")
+    @Description(type = TestType.POSITIVE, description = "Check 201 response for POST '/posts' with existing id")
     public void validatePostPosts200Response() {
         PostsRequest postsRequest = new PostsRequest();
         postsRequest.setBody("Test body");
@@ -135,7 +159,7 @@ public class JsonPlaceholderPostsRestTest {
         postsRequest.setUserId("105");
 
         Response postResponse = restCore.postResponse(postsRequest, JsonPlaceholderEndpoint.post);
-        postResponse.then().statusCode(201);
+        postResponse.then().statusCode(HttpStatus.SC_CREATED);
 
         PostsResponse actualResponse = postResponse.getBody().as(PostsResponse.class);
 
@@ -145,29 +169,31 @@ public class JsonPlaceholderPostsRestTest {
         Assert.assertEquals(actualResponse.getBody(), postsRequest.getBody());
         Assert.assertEquals(actualResponse.getTitle(), postsRequest.getTitle());
 
-        // validate created entry
         Response getResponse = restCore.getResponse(getParamPath(JsonPlaceholderEndpoint.postId, generatedId));
-        getResponse.then().statusCode(200);
+        getResponse.then().statusCode(HttpStatus.SC_OK);
     }
 
-    //TODO potential API bug - invalid 200 response for non existing id
     @Test
+    @Issue(ticketNumber = "", description = "potential API bug - invalid 200 response for non existing id")
+    @Description(type = TestType.NEGATIVE, description = "Check 404 response for PATCH '/posts/{id}' with non-existing id")
     public void validatePatchPosts404Response() {
         PostsRequest postsRequest = new PostsRequest();
         postsRequest.setTitle("patched Title");
 
         Response response = restCore.patchResponse(postsRequest, getParamPath(JsonPlaceholderEndpoint.postId, NON_EXISTING_ID));
-        response.then().statusCode(404);
+        response.then().statusCode(HttpStatus.SC_NOT_FOUND);
     }
 
     @Test
+    @Issue(ticketNumber = "", description = "Patch does not update particular field e.g. body")
+    @Description(type = TestType.POSITIVE, description = "Check 200 response for PATCH '/posts/{id}' with existing id")
     public void validatePatchPosts200Response() {
         PostsRequest postsRequest = new PostsRequest();
         postsRequest.setBody("patched Body");
 
         String existingId = "12";
         Response patchResponse = restCore.patchResponse(postsRequest, getParamPath(JsonPlaceholderEndpoint.postId, existingId));
-        patchResponse.then().statusCode(200);
+        patchResponse.then().statusCode(HttpStatus.SC_OK);
 
         PostsResponse actualPutResponse = patchResponse.getBody().as(PostsResponse.class);
 
@@ -176,12 +202,10 @@ public class JsonPlaceholderPostsRestTest {
         Assert.assertEquals(actualPutResponse.getUserId(), "2");
         Assert.assertEquals(actualPutResponse.getId(), existingId);
 
-        // validate patched entry
         Response getResponse = restCore.getResponse(getParamPath(JsonPlaceholderEndpoint.postId, existingId));
-        getResponse.then().statusCode(200);
+        getResponse.then().statusCode(HttpStatus.SC_OK);
 
         PostsResponse getObject = getResponse.getBody().as(PostsResponse.class);
-
         Assert.assertEquals(getObject.getBody(), postsRequest.getBody());
     }
 
